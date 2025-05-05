@@ -39,20 +39,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Register user
-router.post('/register', upload.single('avatar'), (req, res) => {
-  const { name, email, password } = req.body;
-  const newUser = {
-    _id: (dummyUsers.length + 1).toString(),
-    name,
-    email,
-    password,
-    isAdmin: false,
-    avatar: req.file ? req.file.filename : 'default.jpg',
-    createdAt: new Date()
-  };
-  dummyUsers.push(newUser);
-  res.status(201).json(newUser);
-});
+router.post('/register', upload.single('avatar'), registerUser);
 
 // Login user
 router.post('/login', (req, res) => {

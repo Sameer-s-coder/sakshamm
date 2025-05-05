@@ -132,6 +132,8 @@ const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearchHovered, setIsSearchHovered] = useState(false);
+  const [isSearchClicked, setIsSearchClicked] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const cartItems = useSelector((state) => state.cart?.items || []);
   const { userInfo } = useSelector((state) => state.user || { userInfo: null });
@@ -144,6 +146,7 @@ const Navbar = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const searchTimeout = useRef(null);
   const navigate = useLocation().navigate || (() => {}); // fallback for navigate
+  const searchBarRef = useRef(null); // Add ref for search bar
 
   // Handle scroll effect
   useEffect(() => {
@@ -202,6 +205,21 @@ const Navbar = () => {
     setShowSuggestions(false);
     window.location.href = `/search?q=${encodeURIComponent(searchQuery)}`;
   };
+
+  // Click-away handler for search bar click mode
+  useEffect(() => {
+    if (!isSearchClicked) return;
+    function handleClickOutside(event) {
+      if (searchBarRef.current && !searchBarRef.current.contains(event.target)) {
+        setIsSearchClicked(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isSearchClicked]);
+
+  // Open search bar if hovered or clicked
+  const searchBarShouldBeOpen = isSearchHovered || isSearchClicked;
 
   // Navigation links with dropdowns
   const navLinks = [
@@ -368,7 +386,7 @@ const Navbar = () => {
             : "bg-transparent py-2"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-2 sm:px-4">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 relative">
           <div className="flex justify-between items-center h-12">
             {/* Logo */}
             <Link to="/" className="flex items-center">
@@ -475,79 +493,22 @@ const Navbar = () => {
 
             {/* Right Icons */}
             <div className="flex items-center space-x-4">
-              {/* Search Icon and Search Bar Popup */}
+              {/* Search Icon */}
               <motion.div
-                onMouseEnter={() => setIsSearchOpen(true)}
-                onMouseLeave={() => setIsSearchOpen(false)}
                 className="relative"
+                onMouseEnter={() => setIsSearchHovered(true)}
+                onMouseLeave={() => setIsSearchHovered(false)}
               >
                 <motion.button
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => setIsSearchOpen(!isSearchOpen)}
+                  onClick={() => setIsSearchClicked((clicked) => !clicked)}
                   className="text-white hover:text-[#ff9900] transition-colors"
+                  tabIndex={0}
+                  aria-label="Open search bar"
                 >
                   <FaSearch className="h-4 w-4" />
                 </motion.button>
-
-                {/* Search Bar */}
-                <AnimatePresence>
-                  {isSearchOpen && (
-                    <motion.div
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      variants={searchVariants}
-                      className="mt-2 absolute right-0 z-50"
-                    >
-                      <form onSubmit={handleSearchSubmit} autoComplete="off">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="Search for products..."
-                            className="w-64 px-3 py-1.5 text-sm bg-white/10 backdrop-blur-md text-white rounded-full focus:outline-none focus:ring-2 focus:ring-[#ff9900]"
-                            value={searchQuery}
-                            onChange={e => setSearchQuery(e.target.value)}
-                            onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
-                            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                          />
-                          <button type="submit" className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white">
-                            <FaSearch className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        <AnimatePresence>
-                          {showSuggestions && (
-                            <motion.ul
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              className="absolute left-0 right-0 mt-2 bg-white/90 backdrop-blur-lg rounded-xl shadow-2xl z-50 border border-white/30 overflow-hidden"
-                            >
-                              {searchLoading ? (
-                                <li className="px-4 py-2 text-gray-500 text-sm flex items-center gap-2">
-                                  <svg className="animate-spin h-4 w-4 mr-2 text-[#ff9900]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="#ff9900" d="M4 12a8 8 0 018-8v8z"></path></svg>
-                                  Loading...
-                                </li>
-                              ) : searchSuggestions.length > 0 ? (
-                                searchSuggestions.map((item, idx) => (
-                                  <li
-                                    key={item.id || idx}
-                                    className="px-4 py-2 text-black hover:bg-[#ff9900]/10 hover:text-[#ff9900] cursor-pointer text-sm transition-colors"
-                                    onMouseDown={() => handleSuggestionClick(item.title)}
-                                  >
-                                    {item.title}
-                                  </li>
-                                ))
-                              ) : (
-                                <li className="px-4 py-2 text-gray-500 text-sm">No results found</li>
-                              )}
-                            </motion.ul>
-                          )}
-                        </AnimatePresence>
-                      </form>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </motion.div>
 
               {/* Wishlist Icon */}
@@ -615,6 +576,67 @@ const Navbar = () => {
               </motion.button>
             </div>
           </div>
+          {/* Search Bar Popup - moved here for full width */}
+          <AnimatePresence>
+            {searchBarShouldBeOpen && (
+              <motion.div
+                ref={searchBarRef}
+                onMouseEnter={() => setIsSearchHovered(true)}
+                onMouseLeave={() => setIsSearchHovered(false)}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={searchVariants}
+                className="mt-2 absolute left-0 right-0 z-50 px-4"
+              >
+                <form onSubmit={handleSearchSubmit} autoComplete="off">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search for products..."
+                      className="w-full px-3 py-1.5 text-sm bg-white/10 backdrop-blur-md text-white rounded-full focus:outline-none focus:ring-2 focus:ring-[#ff9900]"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    />
+                    <button type="submit" className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white">
+                      <FaSearch className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <AnimatePresence>
+                    {showSuggestions && (
+                      <motion.ul
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="absolute left-0 right-0 mt-2 bg-white/90 backdrop-blur-lg rounded-xl shadow-2xl z-50 border border-white/30 overflow-hidden"
+                      >
+                        {searchLoading ? (
+                          <li className="px-4 py-2 text-gray-500 text-sm flex items-center gap-2">
+                            <svg className="animate-spin h-4 w-4 mr-2 text-[#ff9900]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="#ff9900" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                            Loading...
+                          </li>
+                        ) : searchSuggestions.length > 0 ? (
+                          searchSuggestions.map((item, idx) => (
+                            <li
+                              key={item.id || idx}
+                              className="px-4 py-2 text-black hover:bg-[#ff9900]/10 hover:text-[#ff9900] cursor-pointer text-sm transition-colors"
+                              onMouseDown={() => handleSuggestionClick(item.title)}
+                            >
+                              {item.title}
+                            </li>
+                          ))
+                        ) : (
+                          <li className="px-4 py-2 text-gray-500 text-sm">No results found</li>
+                        )}
+                      </motion.ul>
+                    )}
+                  </AnimatePresence>
+                </form>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.nav>
 
